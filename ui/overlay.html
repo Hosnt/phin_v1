@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Phin</title>
+<style>
+  :root {
+    --void: #05070a;
+    --panel: #0b1016;
+    --ring: #48e0ff;
+    --ring-dim: #1d4a57;
+    --text: #d7e6ea;
+    --text-dim: #5f7a82;
+    --amber: #ffb454;
+    --mono: 'Berkeley Mono', 'JetBrains Mono', ui-monospace, monospace;
+    --display: 'Neue Montreal', 'Inter', -apple-system, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: transparent; /* the native window itself is transparent —
+      this is what makes the orb a real circle instead of a square box */
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--display);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .stage {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.mode-orb .stage,
+  body.mode-dashboard .stage { display: none; }
+  body.mode-console .stage { display: flex; }
+
+  .console {
+    position: relative;
+    width: 340px;
+    padding: 28px 26px 22px;
+    background: linear-gradient(180deg, rgba(11,16,22,0.94), rgba(6,9,13,0.97));
+    border: 1px solid rgba(72,224,255,0.18);
+    border-radius: 18px;
+    box-shadow: 0 0 0 1px rgba(72,224,255,0.04), 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.03);
+    backdrop-filter: blur(18px);
+  }
+
+  .console::before, .dashboard-panel::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(72,224,255,0.35), transparent 40%, transparent 70%, rgba(72,224,255,0.12));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .id-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 18px;
+  }
+
+  .id-name {
+    font-size: 13px;
+    letter-spacing: 0.32em;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .id-tag {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+  }
+
+  /* --- Signature element: the reactor ring, doubles as a live waveform --- */
+  .reactor {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    margin: 4px auto 20px;
+  }
+
+  .reactor svg { width: 100%; height: 100%; }
+
+  .ring-track {
+    fill: none;
+    stroke: var(--ring-dim);
+    stroke-width: 1;
+    opacity: 0.5;
+  }
+
+  .ring-active {
+    fill: none;
+    stroke: var(--ring);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(72,224,255,0.85));
+    stroke-dasharray: 60 320;
+    animation: orbit 3.4s linear infinite;
+  }
+
+  .core {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 8px; height: 8px;
+    background: var(--ring);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 14px 4px rgba(72,224,255,0.7);
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+
+  .bars {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
+  }
+
+  .bars span {
+    width: 2px;
+    height: 6px;
+    background: var(--ring);
+    border-radius: 1px;
+    opacity: 0.85;
+    animation: bar 1.1s ease-in-out infinite;
+  }
+  .bars span:nth-child(1) { animation-delay: 0s; }
+  .bars span:nth-child(2) { animation-delay: .1s; }
+  .bars span:nth-child(3) { animation-delay: .2s; }
+  .bars span:nth-child(4) { animation-delay: .3s; }
+  .bars span:nth-child(5) { animation-delay: .4s; }
+  .bars span:nth-child(6) { animation-delay: .3s; }
+  .bars span:nth-child(7) { animation-delay: .2s; }
+  .bars span:nth-child(8) { animation-delay: .1s; }
+  .bars span:nth-child(9) { animation-delay: 0s; }
+
+  @keyframes orbit { to { stroke-dashoffset: -380; } }
+  @keyframes breathe {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.7; }
+  }
+  @keyframes bar {
+    0%, 100% { height: 6px; }
+    50% { height: 24px; }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+  }
+
+  .status-line {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ring);
+    margin-bottom: 14px;
+    min-height: 14px;
+  }
+  body.hearing-active .status-line,
+  body.hearing-active .dash-status {
+    color: var(--amber);
+    animation: hear-pulse 0.7s ease-in-out infinite;
+  }
+
+  .transcript {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+    min-height: 42px;
+    text-align: center;
+    font-weight: 400;
+  }
+
+  .transcript .dim { color: var(--text-dim); }
+
+  .rail {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(72,224,255,0.1);
+  }
+
+  .rail-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+
+  .gauge-row {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-bottom: 16px;
+  }
+  .gauge { position: relative; width: 62px; height: 62px; }
+  .gauge svg { width: 100%; height: 100%; }
+  .gauge .track {
+    fill: none; stroke: var(--ring-dim); stroke-width: 5;
+  }
+  .gauge .fill {
+    fill: none; stroke: var(--ring); stroke-width: 5; stroke-linecap: round;
+    stroke-dasharray: 176; stroke-dashoffset: 176;
+    transition: stroke-dashoffset 0.6s ease;
+    filter: drop-shadow(0 0 4px rgba(72,224,255,0.7));
+  }
+  .gauge-label {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: var(--mono); color: var(--text);
+  }
+  .gauge-label .pct { font-size: 13px; font-weight: 600; }
+  .gauge-label .tag { font-size: 7px; letter-spacing: 0.1em; color: var(--text-dim); }
+
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .dot.on { background: var(--ring); box-shadow: 0 0 6px rgba(72,224,255,0.9); }
+  .dot.warn { background: var(--amber); box-shadow: 0 0 6px rgba(255,180,84,0.9); }
+
+  /* ================= Orb mode: a TRUE circle, no box at all ================= */
+  .orb-wrap {
+    width: 100%; height: 100%;
+    display: none;
+    flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+  }
+  body.mode-orb .orb-wrap { display: flex; }
+
+  /* Small text readout under the orb so it's obvious Phin is doing
+     *something* — standing by, listening, actually hearing you, thinking,
+     speaking — instead of it just sitting there looking inert. */
+  .orb-label {
+    font-family: var(--mono);
+    font-size: 8px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ring);
+    text-align: center;
+    line-height: 1.2;
+    max-width: 100px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.85;
+    text-shadow: 0 0 6px rgba(72,224,255,0.5);
+  }
+  body[data-state="idle"] .orb-label { opacity: 0.45; }
+  body[data-state="tool"] .orb-label { color: var(--amber); text-shadow: 0 0 6px rgba(255,180,84,0.5); }
+
+  /* Amber pulse the instant mic energy actually crosses the speech
+     threshold — the direct answer to "is it receiving anything". */
+  body.hearing-active .orb-label {
+    color: var(--amber);
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(255,180,84,0.7);
+    animation: hear-pulse 0.7s ease-in-out infinite;
+  }
+  body.hearing-active .orb::before {
+    background: radial-gradient(circle, rgba(255,180,84,0.28) 0%, rgba(255,180,84,0.08) 55%, transparent 75%);
+  }
+  @keyframes hear-pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  .orb {
+    position: relative;
+    width: 74px; height: 74px;
+    border-radius: 50%;
+    animation: float 3.2s ease-in-out infinite;
+  }
+  /* soft glow halo sitting behind the ring, entirely inside the circular
+     window bounds so nothing square ever shows */
+  .orb::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(72,224,255,0.22) 0%, rgba(72,224,255,0.06) 55%, transparent 75%);
+    filter: blur(2px);
+  }
+  .orb-disc {
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, rgba(20,32,40,0.96), rgba(5,7,10,0.98) 70%);
+    border: 1px solid rgba(72,224,255,0.28);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 18px rgba(72,224,255,0.08);
+  }
+  .orb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .orb .orb-track { fill: none; stroke: var(--ring-dim); stroke-width: 2; opacity: 0.45; }
+  .orb .orb-active {
+    fill: none; stroke: var(--ring); stroke-width: 2.2; stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(72,224,255,0.85));
+    stroke-dasharray: 46 180; animation: orbit 3.4s linear infinite;
+  }
+  .orb-core {
+    position: absolute; top: 50%; left: 50%;
+    width: 11px; height: 11px;
+    background: var(--ring);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 16px 5px rgba(72,224,255,0.75);
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+  body[data-state="tool"] .orb .orb-active { stroke: var(--amber); }
+  body[data-state="tool"] .orb-core { background: var(--amber); box-shadow: 0 0 16px 5px rgba(255,180,84,0.75); }
+  body[data-state="listening"] .orb .orb-active,
+  body[data-state="speaking"] .orb .orb-active { animation-duration: 1.1s; }
+  body[data-state="listening"] .orb-core,
+  body[data-state="speaking"] .orb-core { animation-duration: 0.85s; }
+  body[data-state="idle"] .orb .orb-active { animation-duration: 6s; opacity: 0.55; }
+  body[data-state="idle"] .orb::before { opacity: 0.6; }
+
+  /* small pin / close buttons */
+  .pin-btn, .close-btn {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    border: 1px solid rgba(72,224,255,0.18);
+    border-radius: 4px;
+    padding: 3px 7px;
+    background: rgba(72,224,255,0.06);
+  }
+  .pin-btn:hover, .close-btn:hover { color: var(--ring); border-color: rgba(72,224,255,0.4); }
+
+  /* ================= Dashboard mode: the bigger main UI ================= */
+  .dashboard-panel {
+    display: none;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    padding: 26px 26px 20px;
+    background: linear-gradient(180deg, rgba(11,16,22,0.96), rgba(6,9,13,0.98));
+    border: 1px solid rgba(72,224,255,0.2);
+    border-radius: 20px;
+    box-shadow: 0 0 0 1px rgba(72,224,255,0.05), 0 30px 80px rgba(0,0,0,0.65);
+    backdrop-filter: blur(20px);
+    flex-direction: column;
+  }
+  body.mode-dashboard .dashboard-panel { display: flex; }
+
+  .dash-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .dash-title { font-size: 15px; letter-spacing: 0.28em; font-weight: 500; }
+  .dash-status {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    color: var(--ring); text-align: center; margin: 10px 0 14px;
+  }
+  .dash-history {
+    flex: 1;
+    overflow-y: auto;
+    border-top: 1px solid rgba(72,224,255,0.1);
+    border-bottom: 1px solid rgba(72,224,255,0.1);
+    padding: 12px 4px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .dash-history::-webkit-scrollbar { width: 5px; }
+  .dash-history::-webkit-scrollbar-thumb { background: rgba(72,224,255,0.25); border-radius: 3px; }
+  .dash-line { font-size: 13px; line-height: 1.45; }
+  .dash-line .who {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--text-dim); display: block; margin-bottom: 2px;
+  }
+  .dash-line.user .who { color: var(--amber); }
+  .dash-line.assistant .who { color: var(--ring); }
+  .dash-empty { color: var(--text-dim); font-size: 12px; text-align: center; margin-top: 20px; }
+
+  .dash-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 14px;
+  }
+</style>
+</head>
+<body class="mode-orb" data-state="idle">
+  <div class="orb-wrap" id="orb-wrap" title="Click to open Phin">
+    <div class="orb">
+      <div class="orb-disc"></div>
+      <svg viewBox="0 0 74 74">
+        <circle class="orb-track" cx="37" cy="37" r="30"></circle>
+        <circle class="orb-active" cx="37" cy="37" r="30" transform="rotate(-90 37 37)"></circle>
+      </svg>
+      <div class="orb-core"></div>
+    </div>
+    <div class="orb-label" id="orb-label">STANDING BY</div>
+  </div>
+
+  <div class="stage">
+    <div class="console">
+      <div class="id-row">
+        <div class="id-name">PHIN</div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="id-tag" id="clock">--:--:--</div>
+          <div class="pin-btn" id="pin-btn" title="Collapse to orb">— </div>
+        </div>
+      </div>
+
+      <div class="gauge-row">
+        <div class="gauge">
+          <svg viewBox="0 0 66 66">
+            <circle class="track" cx="33" cy="33" r="28"></circle>
+            <circle class="fill" id="gauge-cpu" cx="33" cy="33" r="28" transform="rotate(-90 33 33)"></circle>
+          </svg>
+          <div class="gauge-label"><span class="pct" id="cpu-pct">--</span><span class="tag">CPU</span></div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 66 66">
+            <circle class="track" cx="33" cy="33" r="28"></circle>
+            <circle class="fill" id="gauge-ram" cx="33" cy="33" r="28" transform="rotate(-90 33 33)"></circle>
+          </svg>
+          <div class="gauge-label"><span class="pct" id="ram-pct">--</span><span class="tag">RAM</span></div>
+        </div>
+      </div>
+
+      <div class="reactor">
+        <svg viewBox="0 0 132 132">
+          <circle class="ring-track" cx="66" cy="66" r="58"></circle>
+          <circle class="ring-active" cx="66" cy="66" r="58" transform="rotate(-90 66 66)"></circle>
+        </svg>
+        <div class="core" id="core"></div>
+        <div class="bars" id="bars" style="display:none">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <div class="status-line" id="status">STANDING BY</div>
+      <div class="transcript" id="transcript"><span class="dim">Say "Hey Jarvis" to begin</span></div>
+
+      <div class="rail">
+        <div class="rail-item"><span class="dot on" id="dot-mic"></span>MIC</div>
+        <div class="rail-item"><span class="dot" id="dot-llm"></span>BRAIN</div>
+        <div class="rail-item"><span class="dot" id="dot-tools"></span>TOOLS</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dashboard-panel" id="dashboard-panel">
+    <div class="dash-header">
+      <div class="dash-title">PHIN</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="id-tag" id="dash-clock">--:--:--</div>
+        <div class="close-btn" id="dash-close-btn" title="Close dashboard">CLOSE</div>
+      </div>
+    </div>
+
+    <div class="gauge-row">
+      <div class="gauge">
+        <svg viewBox="0 0 66 66">
+          <circle class="track" cx="33" cy="33" r="28"></circle>
+          <circle class="fill" id="dash-gauge-cpu" cx="33" cy="33" r="28" transform="rotate(-90 33 33)"></circle>
+        </svg>
+        <div class="gauge-label"><span class="pct" id="dash-cpu-pct">--</span><span class="tag">CPU</span></div>
+      </div>
+      <div class="gauge">
+        <svg viewBox="0 0 66 66">
+          <circle class="track" cx="33" cy="33" r="28"></circle>
+          <circle class="fill" id="dash-gauge-ram" cx="33" cy="33" r="28" transform="rotate(-90 33 33)"></circle>
+        </svg>
+        <div class="gauge-label"><span class="pct" id="dash-ram-pct">--</span><span class="tag">RAM</span></div>
+      </div>
+    </div>
+
+    <div class="dash-status" id="dash-status">STANDING BY</div>
+
+    <div class="dash-history" id="dash-history">
+      <div class="dash-empty" id="dash-empty">No conversation yet this session.</div>
+    </div>
+
+    <div class="dash-footer">
+      <div class="rail-item"><span class="dot on" id="dash-dot-mic"></span>MIC</div>
+      <div class="rail-item"><span class="dot" id="dash-dot-llm"></span>BRAIN</div>
+      <div class="rail-item"><span class="dot" id="dash-dot-tools"></span>TOOLS</div>
+    </div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+  // This overlay renders real backend events (from ui/server.py, called
+  // directly by main.py) when a socket connection is available. If it can't
+  // connect within 1.5s (e.g. opened standalone for design preview), it
+  // falls back to demo-cycling states so the UI is still inspectable.
+  function tick() {
+    const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+    document.getElementById('clock').textContent = t;
+    const dc = document.getElementById('dash-clock');
+    if (dc) dc.textContent = t;
+  }
+  setInterval(tick, 1000); tick();
+
+  // --- Native overlay bridge (no-ops in a plain browser tab) ---------------
+  // When running via `python main.py voice --native`, this page is loaded
+  // inside a frameless pywebview window instead of a browser tab, and
+  // window.pywebview.api.* calls actually resize/move that OS window. In a
+  // regular browser these calls just don't exist, and the page still works
+  // fine as a normal HUD tab.
+  const IS_NATIVE = () => !!(window.pywebview && window.pywebview.api);
+
+  let collapseTimer = null;
+  let pinned = false; // true while the dashboard is manually open
+
+  function requestExpand() {
+    clearTimeout(collapseTimer);
+    if (pinned) return;
+    if (IS_NATIVE()) window.pywebview.api.expand();
+  }
+  function requestCollapse() {
+    if (pinned) return;
+    if (IS_NATIVE()) window.pywebview.api.collapse();
+  }
+  function scheduleAutoCollapse(ms = 4000) {
+    clearTimeout(collapseTimer);
+    collapseTimer = setTimeout(requestCollapse, ms);
+  }
+  function openDashboard() {
+    pinned = true;
+    clearTimeout(collapseTimer);
+    document.body.classList.remove('mode-orb', 'mode-console');
+    document.body.classList.add('mode-dashboard');
+    if (IS_NATIVE()) window.pywebview.api.open_dashboard();
+  }
+  function closeDashboard() {
+    pinned = false;
+    document.body.classList.remove('mode-dashboard');
+    if (IS_NATIVE()) {
+      window.pywebview.api.close_dashboard();
+    } else {
+      applyLayoutForSize();
+    }
+  }
+
+  function applyLayoutForSize() {
+    if (pinned) return; // dashboard controls its own class while open
+    // The native window's actual pixel size IS the orb size when collapsed,
+    // so this alone is enough to swap layouts — no separate signal needed.
+    const isOrb = IS_NATIVE() && window.innerWidth < 150;
+    document.body.classList.toggle('mode-orb', isOrb);
+    document.body.classList.toggle('mode-console', !isOrb);
+  }
+  window.addEventListener('resize', applyLayoutForSize);
+  window.addEventListener('pywebviewready', applyLayoutForSize);
+  applyLayoutForSize();
+
+  document.getElementById('orb-wrap').addEventListener('click', requestExpand);
+  document.getElementById('pin-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    requestCollapse();
+  });
+  document.getElementById('dash-close-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeDashboard();
+  });
+
+  function setState(state, label) {
+    document.body.setAttribute('data-state', state);
+    const text = label || state.toUpperCase();
+
+    const status = document.getElementById('status');
+    const orbLabel = document.getElementById('orb-label');
+    const bars = document.getElementById('bars');
+    const core = document.getElementById('core');
+    status.textContent = text;
+    if (orbLabel) orbLabel.textContent = text;
+    // A fresh status line means we've moved to a new phase (thinking,
+    // speaking, back to standby, ...) — any stale "hearing" pulse from the
+    // previous phase shouldn't carry over into this one.
+    if (state !== 'listening') document.body.classList.remove('hearing-active');
+    bars.style.display = state === 'listening' ? 'flex' : 'none';
+    core.style.display = state === 'listening' ? 'none' : 'block';
+    document.getElementById('dot-llm').classList.toggle('on', state === 'thinking');
+    document.getElementById('dot-tools').classList.toggle('on', state === 'tool');
+
+    const dashStatus = document.getElementById('dash-status');
+    if (dashStatus) dashStatus.textContent = text;
+    const dashLlm = document.getElementById('dash-dot-llm');
+    const dashTools = document.getElementById('dash-dot-tools');
+    if (dashLlm) dashLlm.classList.toggle('on', state === 'thinking');
+    if (dashTools) dashTools.classList.toggle('on', state === 'tool');
+
+    // The whole reason this exists: Phin should pop out on its own the
+    // moment it's doing anything, and tuck itself away again once it's
+    // done, without the user ever touching it (unless the dashboard is
+    // pinned open, in which case it just stays where it is).
+    if (state === 'idle') {
+      scheduleAutoCollapse();
+    } else {
+      requestExpand();
+    }
+  }
+
+  function setHearing(active) {
+    document.body.classList.toggle('hearing-active', !!active);
+    const orbLabel = document.getElementById('orb-label');
+    if (orbLabel && active) orbLabel.textContent = 'HEARING YOU';
+    else if (orbLabel && document.body.getAttribute('data-state') === 'listening') orbLabel.textContent = 'LISTENING';
+  }
+
+  function setTranscript(text, speaker) {
+    const el = document.getElementById('transcript');
+    if (!text) { el.innerHTML = '<span class="dim">Say "Hey Jarvis" to begin</span>'; return; }
+    el.textContent = text;
+    appendHistory(text, speaker);
+  }
+
+  function appendHistory(text, speaker) {
+    const history = document.getElementById('dash-history');
+    const empty = document.getElementById('dash-empty');
+    if (empty) empty.remove();
+    const row = document.createElement('div');
+    row.className = 'dash-line ' + (speaker === 'assistant' ? 'assistant' : 'user');
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = speaker === 'assistant' ? 'PHIN' : 'YOU';
+    const body = document.createElement('div');
+    body.textContent = text;
+    row.appendChild(who);
+    row.appendChild(body);
+    history.appendChild(row);
+    history.scrollTop = history.scrollHeight;
+  }
+
+  function setGauge(id, pctId, percent) {
+    const circumference = 176; // 2 * PI * r(28)
+    const clamped = Math.max(0, Math.min(100, percent));
+    const el = document.getElementById(id);
+    const pctEl = document.getElementById(pctId);
+    if (el) el.style.strokeDashoffset = circumference - (circumference * clamped / 100);
+    if (pctEl) pctEl.textContent = Math.round(clamped) + '%';
+  }
+
+  let connected = false;
+  try {
+    const socket = io('http://localhost:5151', { timeout: 1500, reconnectionAttempts: 3 });
+    socket.on('connect', () => { connected = true; });
+    socket.on('status', (data) => setState(data.state, data.text));
+    socket.on('transcript', (data) => setTranscript(data.text, data.speaker));
+    socket.on('hearing', (data) => setHearing(data.active));
+    socket.on('dashboard', (data) => { if (data.open) openDashboard(); else closeDashboard(); });
+    socket.on('stats', (data) => {
+      setGauge('gauge-cpu', 'cpu-pct', data.cpu);
+      setGauge('gauge-ram', 'ram-pct', data.ram);
+      setGauge('dash-gauge-cpu', 'dash-cpu-pct', data.cpu);
+      setGauge('dash-gauge-ram', 'dash-ram-pct', data.ram);
+    });
+  } catch (e) {
+    // socket.io not reachable — demo mode below will kick in
+  }
+
+  // Demo cycle only if we never get a real connection (design preview).
+  const demo = [
+    ['idle', 'STANDING BY'],
+    ['listening', 'LISTENING'],
+    ['thinking', 'THINKING'],
+    ['tool', 'RUNNING TOOL'],
+    ['speaking', 'SPEAKING'],
+  ];
+  let i = 0;
+  setTimeout(() => {
+    if (!connected) {
+      setInterval(() => { setState(...demo[i % demo.length]); i++; }, 2200);
+    }
+  }, 1800);
+</script>
+</body>
+</html>

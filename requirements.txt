@@ -1,0 +1,37 @@
+anthropic>=0.40.0
+openai>=1.50.0
+python-dotenv>=1.0.0
+elevenlabs>=1.9.0
+
+# Voice
+faster-whisper>=1.0.3
+openwakeword>=0.6.0
+onnxruntime>=1.18.0
+sounddevice>=0.4.6
+numpy>=1.26.0,<2.0.0
+
+# Computer control
+pyautogui>=0.9.54
+mss>=9.0.1
+pygetwindow>=0.0.9
+pywin32>=306; sys_platform == "win32"
+
+# File creation
+python-docx>=1.1.2
+reportlab>=4.2.0
+
+# HUD server
+flask>=3.0.0
+flask-socketio>=5.3.6
+psutil>=5.9.0
+
+# Background / tray operation
+pystray>=0.19.5
+pillow>=10.0.0
+# Pinned EXACTLY to 4.4.1 — pywebview 6.x has a known Windows regression
+# where a frameless window (what the orb overlay needs) crashes with
+# "RecursionError: maximum recursion depth exceeded" in
+# AccessibilityObject.Bounds. 4.4.1 predates that bug. Don't loosen this
+# to >=4.4.1 or pip will happily grab 6.x and reintroduce the crash.
+pywebview==4.4.1
+pythonnet>=3.0.3; sys_platform == "win32"  # pywebview's EdgeChromium backend on Windows
