@@ -1,0 +1,33 @@
+# Secrets — never commit a real .env
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Runtime data
+data/memory.db
+data/*.db
+data/screenshots/*
+!data/screenshots/.gitkeep
+data/freellmpool_proxy.log
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Uploaded archives (source lives in the tree now)
+*.zip
